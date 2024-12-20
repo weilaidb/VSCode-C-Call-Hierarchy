@@ -370,6 +370,14 @@ export function getDatabasePath() {
    };
 }
 
+ export  function deleteFile(filePath: string): void 
+   {
+      if (fs.existsSync(filePath)) {
+         fs.unlinkSync(filePath);
+         console.log(`Deleted existing file at ${filePath}`);
+      }
+   }
+
 export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
    await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
@@ -382,6 +390,13 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
       // });
 
       const { cscopesDbPath, ctagsDbPath } = getDatabasePath();
+
+      //delete file first if exist
+      progress.report({ increment: 0, message: "Delete First Database..." });
+      deleteFile(cscopesDbPath);
+      deleteFile(ctagsDbPath);
+
+      await delayMs(300);
 
       if ((buildOption === DatabaseType.CSCOPE) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 0, message: "Building Database..." });

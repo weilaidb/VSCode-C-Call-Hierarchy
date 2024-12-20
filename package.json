@@ -3,7 +3,7 @@
     "publisher": "AbdAlMoniem-AlHifnawy",
     "displayName": "C Call Hierarchy",
     "description": "Build C Call Hierarchy using cscope",
-    "version": "2.2.3",
+    "version": "2.2.4",
     "engines": {
         "vscode": "^1.52.0"
     },
@@ -40,7 +40,7 @@
             {
                 "command": "cCallHierarchy.build",
                 "category": "C Call Hierarchy",
-                "enablement": "resourceLangId == c || resourceLangId == cpp && editorTextFocus && enableCommands",
+                "enablement": "resourceLangId == c || resourceLangId == cpp",
                 "title": "Build Database",
                 "icon": "$(extensions-view-icon)"
             },
@@ -103,6 +103,12 @@
                         "type": "string",
                         "default": ".vscode",
                         "description": "Path where database files for CSCOPE and CTAGS will be stored."
+                    },
+                    "ccallhierarchy.ignoredirs": {
+                        "order": 4,
+                        "type": "string",
+                        "default": "",
+                        "description": "directory to ignore.if many use ; split"
                     }
                 }
             }
