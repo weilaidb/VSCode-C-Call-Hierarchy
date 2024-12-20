@@ -106,9 +106,12 @@
                     },
                     "ccallhierarchy.ignoredirs": {
                         "order": 4,
-                        "type": "string",
-                        "default": "",
-                        "description": "directory to ignore.if many use ; split"
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": [],
+                        "description": "Directories to ignore. Use an array of strings."
                     }
                 }
             }
