@@ -437,6 +437,8 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
       // 获取当前工作区根路径
       const workspaceRootPath = getWorkspaceRootPath();
 
+      console.log(`[ccall]workspaceRootPath: ${workspaceRootPath}`);
+      console.log(`[ccall]includeList length: ${includeList.length}`)
       // 如果 includeList 不为空，遍历文件夹查找特定后缀的文件
       if (includeList.length > 0) {
          const foundFiles: string[] = [];
@@ -466,10 +468,10 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
          progress.report({ increment: 0, message: "Building cscope database..." });
          let cscopeCommand = "";
          if (includeList.length > 0) {
-            cscopeCommand = `${CSCOPE_PATH} -i ${includeFilePathNew} -Rcbkf  "${cscopesDbPathNew}"`;
+            cscopeCommand = `${CSCOPE_PATH} -Rcbkf  "${cscopesDbPathNew}" -i ${includeFilePathNew} `;
          }
          else{
-            cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${includeFilePathNew} "${cscopesDbPathNew}"`;
+            cscopeCommand = `${CSCOPE_PATH} -Rcbkf "${cscopesDbPathNew}"`;
          }
          console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
          await doCLI(cscopeCommand);
