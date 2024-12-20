@@ -386,6 +386,22 @@ function deleteFile(directory: string): void {
    }
 }
 
+/**
+ * 根据操作系统转换路径分隔符
+ * @param inputPath 输入路径
+ * @returns 转换后的路径
+ */
+export function convertPathForOS(inputPath: string): string {
+    const platform = process.platform;
+
+    if (platform === 'win32') {
+        // 将 Unix 风格路径转换为 Windows 风格路径
+        return inputPath.split('/').join('\\');
+    } else {
+        // 假设其他平台都是类 Unix 系统，将 Windows 风格路径转换为 Unix 风格路径
+        return inputPath.split('\\').join('/');
+    }
+}
 
 export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
    await vscode.window.withProgress({
@@ -401,22 +417,25 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
       console.log(`[ccall]ignoreList: ${ignoreList}`);
 
       progress.report({ increment: 0, message: "Deleting existing databases..." });
-      deleteFile(cscopesDbPath);
-      deleteFile(ctagsDbPath);
+      let cscopesDbPathNew = convertPathForOS(cscopesDbPath);
+      let ctagsDbPathNew = convertPathForOS(ctagsDbPath);
+      
+      deleteFile(cscopesDbPathNew);
+      deleteFile(ctagsDbPathNew);
 
       await delayMs(300);
 
       if ((buildOption === DatabaseType.CSCOPE) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 0, message: "Building cscope database..." });
 
-        const cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${ignoreList} "${cscopesDbPath}"`;
+        const cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${ignoreList} "${cscopesDbPathNew}"`;
         await doCLI(cscopeCommand);
 
-         // const cscopeCommand = `${CSCOPE_PATH} ${ignoreList} -Rcbkf "${cscopesDbPath}"`;
+         // const cscopeCommand = `${CSCOPE_PATH} ${ignoreList} -Rcbkf "${cscopesDbPathNew}"`;
          // console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
          // await doCLI(cscopeCommand);
 
-         // await doCLI(`${CSCOPE_PATH} -Rcbkf "${cscopesDbPath}"`);
+         // await doCLI(`${CSCOPE_PATH} -Rcbkf "${cscopesDbPathNew}"`);
 
          await delayMs(500);
       }
@@ -424,16 +443,16 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
       if ((buildOption === DatabaseType.CTAGS) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 50, message: "Building ctags database..." });
 
-        // const ctagsCommand = `${CTAGS_PATH} --fields=+i -Rno ${ignoreList} "${ctagsDbPath}"`;
+        // const ctagsCommand = `${CTAGS_PATH} --fields=+i -Rno ${ignoreList} "${ctagsDbPathNew}"`;
         // await doCLI(ctagsCommand);
 
-         const ctagsCommand = `${CTAGS_PATH} ${ignoreList} --fields=+i -Rno "${ctagsDbPath}"`;
+         const ctagsCommand = `${CTAGS_PATH} ${ignoreList} --fields=+i -Rno "${ctagsDbPathNew}"`;
          console.log(`[ccall]ctagsCommand: ${ctagsCommand}`);
          await doCLI(ctagsCommand);
 
 
 
-         await doCLI(`${CTAGS_PATH} --fields=+i -Rno "${ctagsDbPath}"`);
+         await doCLI(`${CTAGS_PATH} --fields=+i -Rno "${ctagsDbPathNew}"`);
 
          await delayMs(500);
       }
