@@ -428,8 +428,10 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
       progress.report({ increment: 0, message: "Deleting existing databases..." });
       let cscopesDbPathNew = convertPathForOS(cscopesDbPath);
       let ctagsDbPathNew = convertPathForOS(ctagsDbPath);
+      let includeFilePathNew = convertPathForOS(includeFilePath);
       deleteFileOrDirectory(cscopesDbPathNew);
       deleteFileOrDirectory(ctagsDbPathNew);
+      deleteFileOrDirectory(includeFilePathNew);
       await delayMs(300);
 
       // 获取当前工作区根路径
@@ -457,17 +459,17 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
 
          // 将找到的文件路径写入临时文件
          const includeContent = foundFiles.join('\n'); // 换行分隔
-         await vscode.workspace.fs.writeFile(vscode.Uri.file(includeFilePath), Buffer.from(includeContent, 'utf-8'));
+         await vscode.workspace.fs.writeFile(vscode.Uri.file(includeFilePathNew), Buffer.from(includeContent, 'utf-8'));
       }
 
       if ((buildOption === DatabaseType.CSCOPE) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 0, message: "Building cscope database..." });
          let cscopeCommand = "";
          if (includeList.length > 0) {
-            cscopeCommand = `${CSCOPE_PATH} -i ${includeFilePath} -Rcbkf  "${cscopesDbPathNew}"`;
+            cscopeCommand = `${CSCOPE_PATH} -i ${includeFilePathNew} -Rcbkf  "${cscopesDbPathNew}"`;
          }
          else{
-            cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${includeFilePath} "${cscopesDbPathNew}"`;
+            cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${includeFilePathNew} "${cscopesDbPathNew}"`;
          }
          console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
          await doCLI(cscopeCommand);
