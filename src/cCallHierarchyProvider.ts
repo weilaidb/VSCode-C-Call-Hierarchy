@@ -370,19 +370,27 @@ export function getDatabasePath() {
    };
 }
 
-export function getIgnoreList(): string[] {
+export function getIncludeList(): string[] {
    const config = vscode.workspace.getConfiguration('ccallhierarchy');
-   return config.get<string[]>('ignoredirs', []);
+   return config.get<string[]>('includedirs', []);
 }
 
-function deleteFile(directory: string): void {
+
+function deleteFileOrDirectory(target: string): void {
    try {
-      if (fs.existsSync(directory)) {
-         fs.rmdirSync(directory, { recursive: true });
-         console.log(`Deleted directory at ${directory}`);
+      if (fs.existsSync(target)) {
+         if (fs.lstatSync(target).isDirectory()) {
+            fs.rmdirSync(target, { recursive: true });
+            console.log(`[ccall]delete dir: ${target}`)
+         } else {
+            fs.unlinkSync(target);
+            console.log(`[ccall]delete file: ${target}`)
+         }
+      } else {
+         console.log(`[ccall]not find dir & file: ${target}`);
       }
    } catch (err) {
-      console.error(`Error deleting directory at ${directory}:`, err);
+      console.log(`[ccall]delete error: ${target}`);
    }
 }
 
@@ -409,29 +417,30 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
    }, async (progress) => {
 
       const { cscopesDbPath, ctagsDbPath } = getDatabasePath();
-      const ignoreList = getIgnoreList().map(dir => `--exclude=${dir}`).join(' ');
+      const includeList = getIncludeList().map(dir => `${dir}`).join(' ');
 
       // 添加的日志语句
       console.log(`[ccall]cscopesDbPath: ${cscopesDbPath}`);
       console.log(`[ccall]ctagsDbPath: ${ctagsDbPath}`);
-      console.log(`[ccall]ignoreList: ${ignoreList}`);
+      console.log(`[ccall]includeList: ${includeList}`);
 
       progress.report({ increment: 0, message: "Deleting existing databases..." });
       let cscopesDbPathNew = convertPathForOS(cscopesDbPath);
       let ctagsDbPathNew = convertPathForOS(ctagsDbPath);
       
-      deleteFile(cscopesDbPathNew);
-      deleteFile(ctagsDbPathNew);
+      deleteFileOrDirectory(cscopesDbPathNew);
+      deleteFileOrDirectory(ctagsDbPathNew);
 
       await delayMs(300);
 
       if ((buildOption === DatabaseType.CSCOPE) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 0, message: "Building cscope database..." });
 
-        const cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${ignoreList} "${cscopesDbPathNew}"`;
+        const cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${includeList} "${cscopesDbPathNew}"`;
+        console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
         await doCLI(cscopeCommand);
 
-         // const cscopeCommand = `${CSCOPE_PATH} ${ignoreList} -Rcbkf "${cscopesDbPathNew}"`;
+         // const cscopeCommand = `${CSCOPE_PATH} ${includeList} -Rcbkf "${cscopesDbPathNew}"`;
          // console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
          // await doCLI(cscopeCommand);
 
@@ -443,10 +452,10 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
       if ((buildOption === DatabaseType.CTAGS) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 50, message: "Building ctags database..." });
 
-        // const ctagsCommand = `${CTAGS_PATH} --fields=+i -Rno ${ignoreList} "${ctagsDbPathNew}"`;
+        // const ctagsCommand = `${CTAGS_PATH} --fields=+i -Rno ${includeList} "${ctagsDbPathNew}"`;
         // await doCLI(ctagsCommand);
 
-         const ctagsCommand = `${CTAGS_PATH} ${ignoreList} --fields=+i -Rno "${ctagsDbPathNew}"`;
+         const ctagsCommand = `${CTAGS_PATH} ${includeList} --fields=+i -Rno "${ctagsDbPathNew}"`;
          console.log(`[ccall]ctagsCommand: ${ctagsCommand}`);
          await doCLI(ctagsCommand);
 

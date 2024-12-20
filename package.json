@@ -104,14 +104,14 @@
                         "default": ".vscode",
                         "description": "Path where database files for CSCOPE and CTAGS will be stored."
                     },
-                    "ccallhierarchy.ignoredirs": {
+                    "ccallhierarchy.includedirs": {
                         "order": 4,
                         "type": "array",
                         "items": {
                             "type": "string"
                         },
                         "default": [],
-                        "description": "Directories to ignore. Use an array of strings."
+                        "description": "文件夹包含列表，如果为空，自动搜索默认全路径，不为空，只搜索此指定的文件夹内的列表"
                     }
                 }
             }
