@@ -366,7 +366,8 @@ export function getDatabasePath() {
 
    return {
       cscopesDbPath: `${databasePath}/cscope.out`,
-      ctagsDbPath: `${databasePath}/ctags.out`
+      ctagsDbPath: `${databasePath}/ctags.out`,
+      includeFilePath: `${databasePath}/includedir.tmp`
    };
 }
 
@@ -415,59 +416,50 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
    await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
    }, async (progress) => {
-
-      const { cscopesDbPath, ctagsDbPath } = getDatabasePath();
-      const includeList = getIncludeList().map(dir => `${dir}`).join(' ');
+      const { cscopesDbPath, ctagsDbPath, includeFilePath  } = getDatabasePath();
+      const includeList = getIncludeList();
 
       // 添加的日志语句
       console.log(`[ccall]cscopesDbPath: ${cscopesDbPath}`);
       console.log(`[ccall]ctagsDbPath: ${ctagsDbPath}`);
-      console.log(`[ccall]includeList: ${includeList}`);
+      console.log(`[ccall]includeList: ${includeList.join(', ')}`);
 
       progress.report({ increment: 0, message: "Deleting existing databases..." });
       let cscopesDbPathNew = convertPathForOS(cscopesDbPath);
       let ctagsDbPathNew = convertPathForOS(ctagsDbPath);
-      
       deleteFileOrDirectory(cscopesDbPathNew);
       deleteFileOrDirectory(ctagsDbPathNew);
-
       await delayMs(300);
+
+      // 如果 includeList 不为空，将其内容写入临时文件
+      if (includeList.length > 0) {
+         const includeContent = includeList.join('\n'); // 换行分隔
+         await vscode.workspace.fs.writeFile(vscode.Uri.file(includeFilePath), Buffer.from(includeContent, 'utf-8'));
+      }
 
       if ((buildOption === DatabaseType.CSCOPE) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 0, message: "Building cscope database..." });
-
-        const cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${includeList} "${cscopesDbPathNew}"`;
-        console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
-        await doCLI(cscopeCommand);
-
-         // const cscopeCommand = `${CSCOPE_PATH} ${includeList} -Rcbkf "${cscopesDbPathNew}"`;
-         // console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
-         // await doCLI(cscopeCommand);
-
-         // await doCLI(`${CSCOPE_PATH} -Rcbkf "${cscopesDbPathNew}"`);
-
+         let cscopeCommand = "";
+         if (includeList.length > 0) {
+            cscopeCommand = `${CSCOPE_PATH} -i ${includeFilePath} -Rcbkf  "${cscopesDbPathNew}"`;
+         }
+         else{
+            cscopeCommand = `${CSCOPE_PATH} -Rcbkf ${includeFilePath} "${cscopesDbPathNew}"`;
+         }
+         console.log(`[ccall]cscopeCommand: ${cscopeCommand}`);
+         await doCLI(cscopeCommand);
          await delayMs(500);
       }
 
       if ((buildOption === DatabaseType.CTAGS) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 50, message: "Building ctags database..." });
-
-        // const ctagsCommand = `${CTAGS_PATH} --fields=+i -Rno ${includeList} "${ctagsDbPathNew}"`;
-        // await doCLI(ctagsCommand);
-
-         const ctagsCommand = `${CTAGS_PATH} ${includeList} --fields=+i -Rno "${ctagsDbPathNew}"`;
+         const ctagsCommand = `${CTAGS_PATH} ${includeList.join(' ')} --fields=+i -Rno "${ctagsDbPathNew}"`;
          console.log(`[ccall]ctagsCommand: ${ctagsCommand}`);
          await doCLI(ctagsCommand);
-
-
-
-         await doCLI(`${CTAGS_PATH} --fields=+i -Rno "${ctagsDbPathNew}"`);
-
          await delayMs(500);
       }
 
       progress.report({ increment: 100, message: "Finished building database" });
-
       await delayMs(1500);
    });
 }
