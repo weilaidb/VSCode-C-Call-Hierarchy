@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as childProcess from 'child_process';
 import * as lodash from 'lodash';
+import * as path from 'path';
 
 let CSCOPE_PATH = 'cscope';
 let CTAGS_PATH = 'ctags';
@@ -416,14 +417,14 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
    await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
    }, async (progress) => {
-      const { cscopesDbPath, ctagsDbPath, includeFilePath  } = getDatabasePath();
+      const { cscopesDbPath, ctagsDbPath, includeFilePath } = getDatabasePath();
       const includeList = getIncludeList();
+      const fileExtensions = ['.c', '.cpp', '.h', '.cc', '.cxx', '.java', '.py', '.ts']; // 需要查找的文件后缀
 
       // 添加的日志语句
       console.log(`[ccall]cscopesDbPath: ${cscopesDbPath}`);
       console.log(`[ccall]ctagsDbPath: ${ctagsDbPath}`);
       console.log(`[ccall]includeList: ${includeList.join(', ')}`);
-
       progress.report({ increment: 0, message: "Deleting existing databases..." });
       let cscopesDbPathNew = convertPathForOS(cscopesDbPath);
       let ctagsDbPathNew = convertPathForOS(ctagsDbPath);
@@ -431,9 +432,31 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
       deleteFileOrDirectory(ctagsDbPathNew);
       await delayMs(300);
 
-      // 如果 includeList 不为空，将其内容写入临时文件
+      // 获取当前工作区根路径
+      const workspaceRootPath = getWorkspaceRootPath();
+
+      // 如果 includeList 不为空，遍历文件夹查找特定后缀的文件
       if (includeList.length > 0) {
-         const includeContent = includeList.join('\n'); // 换行分隔
+         const foundFiles: string[] = [];
+         
+         for (const dir of includeList) {
+            // 将工作区根路径与当前目录结合
+            const fullPath = path.join(workspaceRootPath, dir);
+
+            // 检查目录是否存在
+            if (!fs.existsSync(fullPath)) {
+               vscode.window.showErrorMessage(`目录不存在: ${fullPath}`);
+               console.error(`directory no exist: ${fullPath}`);
+               continue; // 停止扫描
+            }
+
+            const files = await getFilesInDirectory(fullPath, fileExtensions);
+            foundFiles.push(...files);
+         }
+
+
+         // 将找到的文件路径写入临时文件
+         const includeContent = foundFiles.join('\n'); // 换行分隔
          await vscode.workspace.fs.writeFile(vscode.Uri.file(includeFilePath), Buffer.from(includeContent, 'utf-8'));
       }
 
@@ -453,7 +476,15 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
 
       if ((buildOption === DatabaseType.CTAGS) || (buildOption === DatabaseType.BOTH)) {
          progress.report({ increment: 50, message: "Building ctags database..." });
-         const ctagsCommand = `${CTAGS_PATH} ${includeList.join(' ')} --fields=+i -Rno "${ctagsDbPathNew}"`;
+         let ctagsCommand = "";
+         
+         if (includeList.length > 0) {
+            ctagsCommand = `${CTAGS_PATH} --fields=+i -Rno "${ctagsDbPathNew}" ${includeList.join(' ')} `;
+         }
+         else{
+            ctagsCommand = `${CTAGS_PATH} --fields=+i -Rno "${ctagsDbPathNew}"`;
+         }
+
          console.log(`[ccall]ctagsCommand: ${ctagsCommand}`);
          await doCLI(ctagsCommand);
          await delayMs(500);
@@ -461,6 +492,35 @@ export async function buildDatabase(buildOption: DatabaseType): Promise<void> {
 
       progress.report({ increment: 100, message: "Finished building database" });
       await delayMs(1500);
+   });
+}
+
+// 辅助函数：遍历目录查找特定后缀的文件
+async function getFilesInDirectory(dir: string, extensions: string[]): Promise<string[]> {
+   return new Promise((resolve, reject) => {
+      fs.readdir(dir, { withFileTypes: true }, (err, files) => {
+         if (err) {
+            return reject(err);
+         }
+
+         const foundFiles: string[] = [];
+         const promises: Promise<void>[] = [];
+
+         files.forEach(file => {
+            const filePath = path.join(dir, file.name);
+            if (file.isDirectory()) {
+               // 如果是目录，递归查找
+               promises.push(getFilesInDirectory(filePath, extensions).then(subFiles => {
+                  foundFiles.push(...subFiles);
+               }));
+            } else if (extensions.some(ext => file.name.endsWith(ext))) {
+               // 如果是目标文件，添加到结果中
+               foundFiles.push(filePath);
+            }
+         });
+
+         Promise.all(promises).then(() => resolve(foundFiles)).catch(reject);
+      });
    });
 }
 export async function findIncluders(fileName: string): Promise<Array<SymbolInfo>> {
